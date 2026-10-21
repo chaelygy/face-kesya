@@ -11,6 +11,7 @@ import socket
 import subprocess
 import threading
 import signal
+import webbrowser
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_JS_PATH = os.path.join(BASE_DIR, "static", "app.js")
@@ -89,7 +90,7 @@ def update_appjs_and_push(new_url):
 def main():
     os.system("color 0A" if os.name == "nt" else "")
     print("=" * 65)
-    print("       SISTEM PENGENALAN WAJAH (VANIA EDITION) - SMART AUTO LAUNCHER")
+    print("       SISTEM PENGENALAN WAJAH (KESYA EDITION) - SMART AUTO LAUNCHER")
     print("=" * 65)
 
     processes = []
@@ -124,6 +125,13 @@ def main():
                 print("      [OK] Backend AI Python aktif di port 5000!")
                 break
             time.sleep(1)
+
+    # Otomatis buka web di browser bawaan
+    try:
+        print("      [BROWSER] Membuka antarmuka web di browser: http://localhost:5000")
+        webbrowser.open("http://localhost:5000")
+    except Exception:
+        pass
 
     # 2. Start Cloudflare Tunnel
     if not os.path.exists(CLOUDFLARED_EXE):

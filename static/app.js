@@ -12,7 +12,7 @@
 
 // â”€â”€â”€ Configuration â”€â”€â”€
 // URL Backend Cloud publik (Hugging Face Spaces atau Cloudflare Tunnel)
-const CLOUD_BACKEND_URL = 'https://map-connections-ccd-burton.trycloudflare.com';
+const CLOUD_BACKEND_URL = 'https://gallery-facilitate-engine-reached.trycloudflare.com';
 
 const isLocal = Boolean(
     window.location.hostname === 'localhost' || 
