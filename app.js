@@ -466,7 +466,7 @@ function drawBoundingBoxes(canvas, faces, isMirrored) {
 
         const isRecognized = face.name !== 'Unknown';
         // Warna hijau zamrud (emerald) untuk wajah yang terverifikasi, abu-abu untuk Unknown
-        const color = isRecognized ? '#10b981' : '#f59e0b';
+        const color = isRecognized ? '#10b981' : '#fb7193';
         const glowColor = isRecognized ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.3)';
 
         // Glow effect
@@ -526,7 +526,7 @@ function drawBoundingBoxes(canvas, faces, isMirrored) {
         const labelY = y - textH - 6;
 
         // Label pill
-        ctx.fillStyle = isRecognized ? 'rgba(5,150,105,0.95)' : 'rgba(180,83,9,0.92)';
+        ctx.fillStyle = isRecognized ? 'rgba(5,150,105,0.95)' : 'rgba(225,29,86,0.92)';
         roundRect(ctx, x, labelY, textW, textH, 6);
         ctx.fill();
 
