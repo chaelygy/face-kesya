@@ -12,7 +12,7 @@
 
 // ─── Configuration ───
 // URL Backend Cloud publik (Hugging Face Spaces atau Cloudflare Tunnel)
-const CLOUD_BACKEND_URL = 'https://gallery-facilitate-engine-reached.trycloudflare.com';
+const CLOUD_BACKEND_URL = 'https://incidents-gather-scuba-includes.trycloudflare.com';
 
 const isFileProtocol = window.location.protocol === 'file:';
 const isLocal = Boolean(
