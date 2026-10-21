@@ -12,7 +12,7 @@
 
 // ─── Configuration ───
 // URL Backend Cloud publik (Hugging Face Spaces atau Cloudflare Tunnel)
-const CLOUD_BACKEND_URL = 'https://champion-anybody-normal-radius.trycloudflare.com';
+const CLOUD_BACKEND_URL = 'https://commercial-calculations-indirect-yeast.trycloudflare.com';
 
 const isFileProtocol = window.location.protocol === 'file:';
 const isLocal = Boolean(
