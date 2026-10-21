@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Vania Vision AI Studio - Sistem Pengenalan Wajah Real-Time Berbasis DeepFace Facenet512 & RetinaFace">
+    <title>Vania AI • Face Recognition Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=3.0">
+</head>
+<body>
+    <!-- Decorative Warm Lily Artwork & Ambient Glow -->
+    <div class="lily-bg-art" aria-hidden="true"></div>
+    <div class="lily-glow-ambient" aria-hidden="true"></div>
+
+    <!-- Animated Warm Golden Pollen / Petals -->
+    <div class="bg-particles" id="particles"></div>
+
+    <!-- Main Application Shell -->
+    <div class="app-shell">
+        
+        <!-- Top Navigation Dock -->
+        <header class="app-header" id="navbar">
+            <div class="header-inner">
+                <!-- Brand Identity -->
+                <div class="header-brand">
+                    <div class="brand-badge-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                            <circle cx="12" cy="11" r="3"/>
+                            <path d="M12 14c-2.5 0-4 1.5-4 3v1h8v-1c0-1.5-1.5-3-4-3z"/>
+                        </svg>
+                    </div>
+                    <div class="brand-titles">
+                        <div class="brand-main">VANIA <span class="brand-accent">STUDIO</span></div>
+                        <div class="brand-sub">FACIAL RECOGNITION AI • 512D</div>
+                    </div>
+                </div>
+
+                <!-- Center Mode Segmented Control -->
+                <div class="mode-segmented-control" role="tablist">
+                    <button class="mode-tab-btn active" id="btnWebcam" onclick="switchMode('webcam')" role="tab" aria-selected="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 7l-7 5 7 5V7z"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                        </svg>
+                        <span>Live Webcam</span>
+                    </button>
+                    <button class="mode-tab-btn" id="btnUpload" onclick="switchMode('upload')" role="tab" aria-selected="false">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span>Scan Foto</span>
+                    </button>
+                </div>
+
+                <!-- Right System Status & Quick Telemetry -->
+                <div class="header-actions">
+                    <div class="vault-pill" title="Jumlah profil wajah terdaftar dalam model AI">
+                        <span class="vault-icon">👥</span>
+                        <span class="vault-count" id="statPersons">-</span>
+                        <span class="vault-label">Identitas</span>
+                    </div>
+
+                    <div class="server-status-pill" id="navStatus" title="Status Server Backend (Klik untuk konfigurasi URL)" onclick="configureServerUrl()">
+                        <span class="status-dot offline"></span>
+                        <span class="status-text">Menghubungkan...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Studio Cockpit Workspace -->
+        <main class="studio-workspace">
+            
+            <!-- Quick Feature Overview Strip -->
+            <section class="studio-subbar">
+                <div class="subbar-tag">
+                    <span class="tag-sparkle">✨</span>
+                    <span>DeepFace Facenet512 Engine &bull; RetinaFace Detector &bull; KNN Top-3 Vector Search</span>
+                </div>
+                <div class="subbar-metrics">
+                    <span class="metric-chip">⚡ Akurasi <strong>&gt;95%</strong></span>
+                    <span class="metric-chip">🎯 Cosine Cutoff <strong>0.42</strong></span>
+                    <span class="metric-chip">🌿 Tema <strong>Lily Edition</strong></span>
+                </div>
+            </section>
+
+            <!-- Grid: Left Viewport + Right Inspector -->
+            <div class="studio-grid">
+                
+                <!-- Viewport Column (Camera / Upload) -->
+                <section class="viewport-card">
+                    <!-- Viewport Top Bar -->
+                    <div class="viewport-header">
+                        <div class="viewport-title-group">
+                            <span class="view-indicator-pulse"></span>
+                            <h2 class="viewport-title" id="panelTitle">Kamera</h2>
+                            <span class="view-badge">AI STREAM</span>
+                        </div>
+                        
+                        <div class="viewport-controls" id="webcamControls">
+                            <button class="btn-action-primary" id="btnStartCam" onclick="startWebcam()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                                <span>Mulai Kamera</span>
+                            </button>
+                            <button class="btn-action-danger hidden" id="btnStopCam" onclick="stopWebcam()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="6" width="12" height="12" rx="2"/>
+                                </svg>
+                                <span>Hentikan</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Video Viewport Frame with Cyber Reticles -->
+                    <div class="viewport-canvas-container" id="videoContainer">
+                        
+                        <!-- High-Tech Corner Reticles -->
+                        <div class="corner-reticle top-left"></div>
+                        <div class="corner-reticle top-right"></div>
+                        <div class="corner-reticle bottom-left"></div>
+                        <div class="corner-reticle bottom-right"></div>
+
+                        <!-- Webcam View -->
+                        <div class="webcam-wrapper" id="webcamWrapper">
+                            <video id="webcamVideo" autoplay playsinline muted></video>
+                            <canvas id="overlayCanvas"></canvas>
+                            <div class="scan-line" id="scanLine"></div>
+                            
+                            <!-- Idle Placeholder -->
+                            <div class="video-placeholder" id="videoPlaceholder">
+                                <div class="placeholder-aperture">
+                                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="14.31" y1="8" x2="20.05" y2="17.94"/>
+                                        <line x1="9.69" y1="8" x2="21.17" y2="8"/>
+                                        <line x1="7.38" y1="12" x2="13.12" y2="2.06"/>
+                                        <line x1="9.69" y1="16" x2="3.95" y2="6.06"/>
+                                        <line x1="14.31" y1="16" x2="2.83" y2="16"/>
+                                        <line x1="16.62" y1="12" x2="10.88" y2="21.94"/>
+                                    </svg>
+                                </div>
+                                <h3 class="placeholder-heading">Webcam Siap Diaktifkan</h3>
+                                <p class="placeholder-desc">Klik tombol <strong>"Mulai Kamera"</strong> di atas untuk mengaktifkan pendeteksi wajah AI real-time.</p>
+                                <button class="btn-placeholder-launch" onclick="startWebcam()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="5 3 19 12 5 21 5 3"/>
+                                    </svg>
+                                    <span>Aktifkan Sekarang</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Upload Photo View -->
+                        <div class="upload-wrapper hidden" id="uploadWrapper">
+                            <div class="upload-dropzone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                                <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)" hidden>
+                                <div class="dropzone-circle">
+                                    <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                </div>
+                                <h3 class="dropzone-title">Tarik & Letakkan Foto Wajah</h3>
+                                <p class="dropzone-subtitle">atau klik untuk memilih file dari komputer</p>
+                                <span class="dropzone-pill">JPG, PNG, WEBP &bull; Maks 10 MB</span>
+                            </div>
+                            
+                            <div class="uploaded-preview hidden" id="uploadedPreview">
+                                <img id="uploadedImage" src="" alt="Uploaded Face">
+                                <canvas id="uploadOverlayCanvas"></canvas>
+                                <button class="btn-preview-close" onclick="removeUpload()" title="Hapus foto">&times;</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Viewport Footer HUD Bar -->
+                    <div class="viewport-hud-footer">
+                        <div class="hud-item">
+                            <span class="hud-dot"></span>
+                            <span class="hud-label">Auto-Detect:</span>
+                            <span class="hud-val">Aktif</span>
+                        </div>
+                        <div class="hud-item">
+                            <span class="hud-label">Model:</span>
+                            <span class="hud-val">Facenet512</span>
+                        </div>
+                        <div class="hud-item">
+                            <span class="hud-label">Detektor:</span>
+                            <span class="hud-val">RetinaFace</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Inspector / Intelligence Stream Column -->
+                <aside class="inspector-card">
+                    <div class="inspector-header">
+                        <div class="inspector-title-group">
+                            <div class="inspector-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="inspector-title">Analisis Wajah</h2>
+                                <span class="inspector-subtitle">Live Intelligence Stream</span>
+                            </div>
+                        </div>
+                        <div class="face-count-badge" id="faceCount">0 wajah</div>
+                    </div>
+
+                    <!-- Processing Scan Indicator -->
+                    <div class="processing-strip hidden" id="processingIndicator">
+                        <div class="processing-spinner"></div>
+                        <span>Mengekstrak embedding 512D & mencocokkan...</span>
+                    </div>
+
+                    <!-- Results List Feed -->
+                    <div class="results-container" id="resultsList">
+                        <div class="empty-state" id="emptyState">
+                            <div class="empty-reticle">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+                                    <line x1="9" y1="9" x2="9.01" y2="9"/>
+                                    <line x1="15" y1="9" x2="15.01" y2="9"/>
+                                </svg>
+                            </div>
+                            <h4 class="empty-title">Menunggu Deteksi Wajah</h4>
+                            <p class="empty-desc">Nyalakan kamera atau upload foto untuk melihat hasil verifikasi identitas real-time.</p>
+                        </div>
+                    </div>
+
+                    <!-- Performance Telemetry Dock -->
+                    <div class="telemetry-dock" id="perfStats">
+                        <div class="telemetry-metric">
+                            <span class="telemetry-label">Latensi</span>
+                            <span class="telemetry-value" id="perfTime">- ms</span>
+                        </div>
+                        <div class="telemetry-metric">
+                            <span class="telemetry-label">Backend</span>
+                            <span class="telemetry-value">Python Flask</span>
+                        </div>
+                        <div class="telemetry-metric">
+                            <span class="telemetry-label">Matching</span>
+                            <span class="telemetry-value">KNN Top-3</span>
+                        </div>
+                    </div>
+                </aside>
+
+            </div>
+
+            <!-- Identity Vault Section (Daftar Orang Terdaftar) -->
+            <section class="vault-section">
+                <div class="vault-header-row">
+                    <div class="vault-title-group">
+                        <div class="vault-badge-icon">📁</div>
+                        <div>
+                            <h3 class="vault-title">Database Profil Terverifikasi</h3>
+                            <p class="vault-subtitle">Identitas tersimpan dalam model DeepFace dengan vektor embedding normalisasi</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Search Input for Filter -->
+                    <div class="vault-search-box">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input type="text" id="vaultSearchInput" placeholder="Cari nama identitas..." oninput="filterPersonsList(this.value)">
+                    </div>
+                </div>
+
+                <div class="vault-grid" id="personsGrid">
+                    <div class="loading-state">Memuat database identitas...</div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Studio Footer -->
+        <footer class="app-footer">
+            <div class="footer-inner">
+                <div class="footer-left">
+                    <span class="footer-brand">Vania AI Studio &bull; Face Recognition System</span>
+                    <span class="footer-edition">Lily Yellow & Linen Edition &copy; 2026</span>
+                </div>
+                <div class="footer-right">
+                    <span class="tech-tag">Facenet-512</span>
+                    <span class="tech-tag">RetinaFace</span>
+                    <span class="tech-tag">Cosine Distance KNN</span>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <script src="app.js?v=3.0"></script>
+</body>
+</html>
