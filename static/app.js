@@ -10,35 +10,39 @@
  * ============================================
  */
 
-// â”€â”€â”€ Configuration â”€â”€â”€
+// ─── Configuration ───
 // URL Backend Cloud publik (Hugging Face Spaces atau Cloudflare Tunnel)
 const CLOUD_BACKEND_URL = 'https://gallery-facilitate-engine-reached.trycloudflare.com';
 
+const isFileProtocol = window.location.protocol === 'file:';
 const isLocal = Boolean(
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1' ||
-    window.location.hostname === ''
+    window.location.hostname === '' ||
+    isFileProtocol
 );
 
-let defaultApi = isLocal ? (window.location.origin || 'http://localhost:5000') : CLOUD_BACKEND_URL;
+let defaultApi = 'http://localhost:5000';
+if (!isLocal) {
+    defaultApi = CLOUD_BACKEND_URL;
+} else if (!isFileProtocol && window.location.origin && window.location.origin !== 'null') {
+    defaultApi = window.location.origin;
+} else {
+    defaultApi = 'http://localhost:5000';
+}
 
-// Jangan biarkan localStorage merusak koneksi jika diakses dari remote/Vercel
-const customApi = isLocal ? localStorage.getItem('faceid_backend_url') : null;
-const API_BASE = (customApi ? customApi.replace(/\/$/, '') : defaultApi);
+const customApi = localStorage.getItem('faceid_backend_url');
+let API_BASE = (customApi ? customApi.replace(/\/$/, '') : defaultApi);
 const WEBCAM_INTERVAL_MS = 1500;  // Kirim frame setiap 1.5 detik
 const JPEG_QUALITY = 0.85;
 
 function configureServerUrl() {
-    if (!isLocal) {
-        // Jangan munculkan prompt konfigurasi di domain publik/Vercel
-        return;
-    }
     const current = localStorage.getItem('faceid_backend_url') || API_BASE;
     const input = prompt(
         "Pengaturan URL Backend Server API:\n" +
-        "â€¢ Untuk lokal: http://localhost:5000\n" +
-        "â€¢ Untuk tunneling: https://xxxx.ngrok-free.app\n" +
-        "â€¢ Untuk cloud (HuggingFace/Render): https://nama-app.hf.space\n\n" +
+        "• Untuk lokal: http://localhost:5000\n" +
+        "• Untuk tunneling: https://xxxx.trycloudflare.com\n" +
+        "• Untuk cloud (HuggingFace/Render): https://nama-app.hf.space\n\n" +
         "URL saat ini:",
         current
     );
@@ -117,19 +121,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
 });
 
-// â”€â”€â”€ Background Particles â”€â”€â”€
+// ─── Background Particles ───
 function initParticles() {
     const container = document.getElementById('particles');
-    const count = 30;
+    if (!container) return;
+    const count = 28;
     
     for (let i = 0; i < count; i++) {
         const particle = document.createElement('div');
         particle.className = 'particle';
         particle.style.left = Math.random() * 100 + '%';
         particle.style.animationDelay = Math.random() * 8 + 's';
-        particle.style.animationDuration = (6 + Math.random() * 6) + 's';
-        particle.style.width = (2 + Math.random() * 3) + 'px';
-        particle.style.height = particle.style.width;
+        particle.style.animationDuration = (8 + Math.random() * 7) + 's';
+        const width = 6 + Math.random() * 6;
+        particle.style.width = width + 'px';
+        particle.style.height = (width * 1.6) + 'px';
         container.appendChild(particle);
     }
 }
@@ -180,7 +186,7 @@ async function checkServerStatus() {
         const data = await res.json();
         
         if (data.status === 'online' && data.model_loaded) {
-            setStatus('online', `Model aktif â€¢ ${data.total_persons} orang`);
+            setStatus('online', `Model aktif \u2022 ${data.total_persons} orang`);
             elements.statPersons.textContent = data.total_persons;
         } else {
             setStatus('offline', 'Model belum dimuat');
@@ -465,9 +471,9 @@ function drawBoundingBoxes(canvas, faces, isMirrored) {
         }
 
         const isRecognized = face.name !== 'Unknown';
-        // Warna hijau zamrud (emerald) untuk wajah yang terverifikasi, abu-abu untuk Unknown
-        const color = isRecognized ? '#10b981' : '#fb7193';
-        const glowColor = isRecognized ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.3)';
+        // Warna hijau zamrud (emerald) untuk wajah yang terverifikasi, amber hangat untuk Unknown
+        const color = isRecognized ? '#10b981' : '#f59e0b';
+        const glowColor = isRecognized ? 'rgba(16,185,129,0.45)' : 'rgba(245,158,11,0.35)';
 
         // Glow effect
         ctx.shadowColor = glowColor;
@@ -510,7 +516,7 @@ function drawBoundingBoxes(canvas, faces, isMirrored) {
         ctx.shadowBlur = 0;
 
         // Subtle connecting lines
-        ctx.strokeStyle = isRecognized ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.25)';
+        ctx.strokeStyle = isRecognized ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.3)';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, bw, bh);
 
@@ -526,7 +532,7 @@ function drawBoundingBoxes(canvas, faces, isMirrored) {
         const labelY = y - textH - 6;
 
         // Label pill
-        ctx.fillStyle = isRecognized ? 'rgba(5,150,105,0.95)' : 'rgba(225,29,86,0.92)';
+        ctx.fillStyle = isRecognized ? 'rgba(21,128,61,0.95)' : 'rgba(217,119,6,0.95)';
         roundRect(ctx, x, labelY, textW, textH, 6);
         ctx.fill();
 
