@@ -12,7 +12,7 @@
 
 // ─── Configuration ───
 // URL Backend Cloud publik (Hugging Face Spaces atau Cloudflare Tunnel)
-const CLOUD_BACKEND_URL = 'https://cameron-racing-nominations-kay.trycloudflare.com';
+const CLOUD_BACKEND_URL = 'https://seed-article-mia-releases.trycloudflare.com';
 
 const isFileProtocol = window.location.protocol === 'file:';
 const isLocal = Boolean(
