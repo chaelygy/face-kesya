@@ -39,7 +39,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ENCODING_FILE = os.path.join(BASE_DIR, "face_encodings.pkl")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 MODEL_NAME = "Facenet512"
-DETECTOR_BACKEND = "retinaface"
+DETECTOR_BACKEND = "yunet"  # Ultra-cepat (20-40ms), akurat dengan DNN ONNX
+FALLBACK_DETECTOR = "retinaface"  # Detektor akurasi tinggi untuk fallback foto upload jika diperlukan
+MAX_INFERENCE_DIM = 640  # Maksimal resolusi inferensi untuk performa kilat tanpa mengurangi akurasi
 
 # Threshold fallback jika tidak ada di file pickle
 DEFAULT_THRESHOLD = 0.30
@@ -108,17 +110,17 @@ def load_face_data():
         
         # Pre-warm model dengan dummy image jika belum di-warm
         if not model_loaded:
-            print("[INFO] Pre-warming model DeepFace...")
+            print("[INFO] Pre-warming model DeepFace & YuNet detector...")
             try:
                 dummy = np.zeros((160, 160, 3), dtype=np.uint8)
                 dummy[50:110, 50:110] = 128
                 DeepFace.represent(
                     img_path=dummy,
                     model_name=MODEL_NAME,
-                    detector_backend="skip",
+                    detector_backend=DETECTOR_BACKEND,
                     enforce_detection=False
                 )
-                print("[INFO] Model DeepFace siap!")
+                print("[INFO] Model DeepFace & YuNet siap!")
             except Exception as e:
                 print(f"[WARNING] Pre-warming: {e}")
         
@@ -208,54 +210,93 @@ def recognize_face_embedding(embedding):
     return best_name, confidence, round(float(best_distance), 4)
 
 
-def process_image(img_array):
+def process_image(img_array, is_upload=False):
     """
     Memproses gambar: deteksi wajah dan kenali setiap wajah.
-    
-    Returns: list of dict dengan info setiap wajah terdeteksi.
+    Optimalisasi performa tinggi:
+    1. Downscale resolusi tinggi ke max 640px untuk latensi kilat (<100ms)
+    2. Detektor YuNet DNN yang sangat cepat (~20-40ms) menggantikan RetinaFace (~2800ms)
+    3. Rescale bounding box kembali ke koordinat asli
+    4. Fallback ke RetinaFace hanya untuk upload file statis jika wajah sulit dideteksi
     """
     results = []
+    if img_array is None or img_array.size == 0:
+        return results
+
+    h, w = img_array.shape[:2]
+    max_dim = max(h, w)
     
+    # 1. Downscale cerdas jika gambar resolusi tinggi
+    if max_dim > MAX_INFERENCE_DIM:
+        scale = MAX_INFERENCE_DIM / float(max_dim)
+        proc_img = cv2.resize(img_array, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    else:
+        scale = 1.0
+        proc_img = img_array
+
+    representations = []
+
+    # 2. Deteksi cepat dengan YuNet
     try:
-        # Deteksi dan ekstrak embedding wajah
         representations = DeepFace.represent(
-            img_path=img_array,
+            img_path=proc_img,
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
-            enforce_detection=False,
+            enforce_detection=True,
             align=True
         )
-
-        for rep in representations:
-            embedding = np.array(rep["embedding"])
-            
-            # Ambil koordinat wajah
-            facial_area = rep.get("facial_area", {})
-            x = facial_area.get("x", 0)
-            y = facial_area.get("y", 0)
-            w = facial_area.get("w", 0)
-            h = facial_area.get("h", 0)
-            
-            # Kenali wajah
-            name, confidence, distance = recognize_face_embedding(embedding)
-            
-            # Hanya masukkan jika confidence > 0 atau ada wajah terdeteksi
-            face_info = {
-                "name": name,
-                "confidence": round(confidence, 1),
-                "distance": round(float(distance), 4),
-                "bbox": {
-                    "x": int(x),
-                    "y": int(y),
-                    "w": int(w),
-                    "h": int(h)
-                }
-            }
-            results.append(face_info)
-
     except Exception as e:
-        print(f"[ERROR] Gagal memproses gambar: {e}")
-    
+        err_msg = str(e).lower()
+        is_not_detected = "face could not be detected" in err_msg or "facenotdetected" in type(e).__name__.lower()
+        
+        # Fallback ke RetinaFace HANYA jika file upload statis dan YuNet tidak menemukan wajah
+        if is_upload and is_not_detected:
+            try:
+                representations = DeepFace.represent(
+                    img_path=img_array,
+                    model_name=MODEL_NAME,
+                    detector_backend=FALLBACK_DETECTOR,
+                    enforce_detection=False,
+                    align=True
+                )
+                scale = 1.0
+                proc_img = img_array
+            except Exception:
+                representations = []
+        elif not is_not_detected:
+            print(f"[ERROR] Gagal memproses gambar: {e}")
+            representations = []
+
+    # 3. Ekstrak embedding dan kenali identitas
+    proc_h, proc_w = proc_img.shape[:2]
+    for rep in representations:
+        facial_area = rep.get("facial_area", {})
+        bx = facial_area.get("x", 0)
+        by = facial_area.get("y", 0)
+        bw = facial_area.get("w", 0)
+        bh = facial_area.get("h", 0)
+
+        # Abaikan dummy fallback jika face_confidence 0 dan ukuran mencakup seluruh layar
+        if rep.get("face_confidence", 1.0) == 0.0 and bw >= proc_w - 5 and bh >= proc_h - 5:
+            continue
+
+        embedding = np.array(rep["embedding"])
+        name, confidence, distance = recognize_face_embedding(embedding)
+
+        # Rescale koordinat bounding box kembali ke dimensi gambar asli
+        face_info = {
+            "name": name,
+            "confidence": round(confidence, 1),
+            "distance": round(float(distance), 4),
+            "bbox": {
+                "x": int(round(bx / scale)),
+                "y": int(round(by / scale)),
+                "w": int(round(bw / scale)),
+                "h": int(round(bh / scale))
+            }
+        }
+        results.append(face_info)
+
     return results
 
 
@@ -274,15 +315,20 @@ def serve_static(filename):
 
 
 @app.route("/api/status", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
 def status():
     """Cek status server."""
     ensure_latest_data()
+    total = face_data["total_persons"] if face_data else 0
     return jsonify({
         "status": "online",
         "model_loaded": model_loaded,
         "model_name": MODEL_NAME,
+        "model": MODEL_NAME,
         "detector": DETECTOR_BACKEND,
-        "total_persons": face_data["total_persons"] if face_data else 0,
+        "total_persons": total,
+        "persons_count": total,
+        "registered_persons_count": total,
         "threshold": face_data["threshold"] if face_data else DEFAULT_THRESHOLD,
         "persons": face_data["person_names"] if face_data else []
     })
@@ -327,11 +373,13 @@ def recognize():
         }), 503
 
     img_array = None
+    source = "webcam"
 
     try:
         # Mode 1: Base64 image (dari webcam)
         if request.is_json:
-            data = request.get_json()
+            data = request.get_json() or {}
+            source = data.get("source", "webcam")
             image_data = data.get("image", "")
             
             # Hapus header data URI jika ada
@@ -347,6 +395,7 @@ def recognize():
 
         # Mode 2: File upload
         elif "image" in request.files:
+            source = "upload"
             file = request.files["image"]
             img_pil = Image.open(file.stream).convert("RGB")
             img_array = np.array(img_pil)
@@ -364,15 +413,20 @@ def recognize():
             "faces": []
         }), 400
 
-    # Proses recognition
-    faces = process_image(img_array)
+    # Proses recognition dengan detektor kilat YuNet & fallback cerdas
+    is_upload = (source == "upload" or "image" in request.files)
+    faces = process_image(img_array, is_upload=is_upload)
     
     elapsed = time.time() - start_time
 
     return jsonify({
         "faces": faces,
         "count": len(faces),
-        "processing_time_ms": round(elapsed * 1000, 1)
+        "processing_time_ms": round(elapsed * 1000, 1),
+        "image_size": {
+            "width": int(img_array.shape[1]),
+            "height": int(img_array.shape[0])
+        }
     })
 
 

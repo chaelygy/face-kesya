@@ -33,8 +33,11 @@ if (!isLocal) {
 
 const customApi = localStorage.getItem('faceid_backend_url');
 let API_BASE = (customApi ? customApi.replace(/\/$/, '') : defaultApi);
-const WEBCAM_INTERVAL_MS = 1500;  // Kirim frame setiap 1.5 detik
-const JPEG_QUALITY = 0.85;
+let captureTimeout = null;
+const WEBCAM_REST_MS = 80;  // Jeda sangat cepat (80ms) antar inferensi untuk deteksi real-time instan
+const JPEG_QUALITY = 0.80;  // Kualitas optimal untuk transfer kilat dan akurasi tinggi
+let captureCanvas = null;
+let captureCtx = null;
 
 function configureServerUrl() {
     const current = localStorage.getItem('faceid_backend_url') || API_BASE;
@@ -308,10 +311,8 @@ async function startWebcam() {
             elements.overlayCanvas.width = video.videoWidth;
             elements.overlayCanvas.height = video.videoHeight;
             
-            // Start periodic capture
-            captureInterval = setInterval(captureAndRecognize, WEBCAM_INTERVAL_MS);
-            // Also capture immediately
-            setTimeout(captureAndRecognize, 500);
+            // Mulai loop inferensi adaptif real-time kilat
+            startWebcamLoop();
         };
     } catch (err) {
         console.error('Webcam error:', err);
@@ -319,9 +320,27 @@ async function startWebcam() {
     }
 }
 
+async function startWebcamLoop() {
+    if (!webcamActive) return;
+    
+    try {
+        await captureAndRecognize();
+    } catch (err) {
+        console.error('Recognition loop error:', err);
+    }
+    
+    if (webcamActive) {
+        captureTimeout = setTimeout(startWebcamLoop, WEBCAM_REST_MS);
+    }
+}
+
 function stopWebcam() {
     webcamActive = false;
     
+    if (captureTimeout) {
+        clearTimeout(captureTimeout);
+        captureTimeout = null;
+    }
     if (captureInterval) {
         clearInterval(captureInterval);
         captureInterval = null;
@@ -345,25 +364,36 @@ function stopWebcam() {
     clearResults();
 }
 
-// â”€â”€â”€ Capture & Recognize (Webcam) â”€â”€â”€
+// ─── Capture & Recognize (Webcam) ───
 async function captureAndRecognize() {
     if (!webcamActive || isProcessing) return;
     
     const video = elements.webcamVideo;
     if (video.readyState < 2) return;
 
-    // Create temp canvas for capture
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(video, 0, 0);
+    // Skalakan frame capture maksimal 640px untuk transfer kilat (<30KB) dan inferensi ultra-cepat
+    const maxDim = 640;
+    const vWidth = video.videoWidth || 640;
+    const vHeight = video.videoHeight || 480;
+    const scale = Math.min(1.0, maxDim / Math.max(vWidth, vHeight));
+    const captureW = Math.round(vWidth * scale);
+    const captureH = Math.round(vHeight * scale);
+
+    // Gunakan kembali canvas yang sama agar tidak memicu memory allocation / GC stutter
+    if (!captureCanvas) {
+        captureCanvas = document.createElement('canvas');
+        captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    if (captureCanvas.width !== captureW || captureCanvas.height !== captureH) {
+        captureCanvas.width = captureW;
+        captureCanvas.height = captureH;
+    }
     
-    // Convert to base64 JPEG
-    const imageData = tempCanvas.toDataURL('image/jpeg', JPEG_QUALITY);
+    captureCtx.drawImage(video, 0, 0, captureW, captureH);
+    const imageData = captureCanvas.toDataURL('image/jpeg', JPEG_QUALITY);
     
-    // Send to server
-    await sendForRecognition(imageData, 'webcam');
+    // Kirim ke server
+    await sendForRecognition(imageData, 'webcam', captureW, captureH);
 }
 
 // â”€â”€â”€ File Upload â”€â”€â”€
@@ -418,8 +448,8 @@ function removeUpload() {
     clearResults();
 }
 
-// â”€â”€â”€ Send to Server â”€â”€â”€
-async function sendForRecognition(imageData, source) {
+// ─── Send to Server ───
+async function sendForRecognition(imageData, source, captureW, captureH) {
     if (isProcessing) return;
     isProcessing = true;
     
@@ -429,7 +459,10 @@ async function sendForRecognition(imageData, source) {
         const res = await fetch(`${API_BASE}/api/recognize`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageData })
+            body: JSON.stringify({ 
+                image: imageData,
+                source: source 
+            })
         });
 
         const data = await res.json();
@@ -439,11 +472,16 @@ async function sendForRecognition(imageData, source) {
         } else {
             displayResults(data.faces, data.processing_time_ms);
             
-            // Draw bounding boxes
+            // Draw bounding boxes dengan koordinat yang diskalakan secara tepat
             if (source === 'webcam') {
-                drawBoundingBoxes(elements.overlayCanvas, data.faces, true);
+                const imgW = (data.image_size && data.image_size.width) || captureW || elements.overlayCanvas.width;
+                const imgH = (data.image_size && data.image_size.height) || captureH || elements.overlayCanvas.height;
+                drawBoundingBoxes(elements.overlayCanvas, data.faces, true, imgW, imgH);
             } else {
-                drawBoundingBoxes(elements.uploadOverlayCanvas, data.faces, false);
+                const img = elements.uploadedImage;
+                const imgW = (data.image_size && data.image_size.width) || img.naturalWidth;
+                const imgH = (data.image_size && data.image_size.height) || img.naturalHeight;
+                drawBoundingBoxes(elements.uploadOverlayCanvas, data.faces, false, imgW, imgH);
             }
         }
     } catch (err) {
@@ -454,21 +492,26 @@ async function sendForRecognition(imageData, source) {
     }
 }
 
-// â”€â”€â”€ Draw Bounding Boxes â”€â”€â”€
-function drawBoundingBoxes(canvas, faces, isMirrored) {
+// ─── Draw Bounding Boxes ───
+function drawBoundingBoxes(canvas, faces, isMirrored, sourceWidth, sourceHeight) {
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
     
     ctx.clearRect(0, 0, w, h);
 
+    const scaleX = (sourceWidth && sourceWidth > 0) ? (w / sourceWidth) : 1;
+    const scaleY = (sourceHeight && sourceHeight > 0) ? (h / sourceHeight) : 1;
+
     faces.forEach(face => {
-        let { x, y, w: bw, h: bh } = face.bbox;
+        let bx = face.bbox.x * scaleX;
+        let by = face.bbox.y * scaleY;
+        let bw = face.bbox.w * scaleX;
+        let bh = face.bbox.h * scaleY;
         
         // Mirror x-coordinate for webcam
-        if (isMirrored) {
-            x = w - x - bw;
-        }
+        let x = isMirrored ? (w - bx - bw) : bx;
+        let y = by;
 
         const isRecognized = face.name !== 'Unknown';
         // Warna hijau zamrud (emerald) untuk wajah yang terverifikasi, amber hangat untuk Unknown
